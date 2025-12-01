@@ -1,110 +1,677 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>AgeAiSavePrompts</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* --- CSS VARIABLES & THEME SETUP --- */
+    :root {
+      /* Базовые цвета (fallback для браузера без Telegram) */
+      --tg-theme-bg-color: #ffffff;
+      --tg-theme-secondary-bg-color: #f0f2f5;
+      --tg-theme-text-color: #000000;
+      --tg-theme-hint-color: #999999;
+      --tg-theme-link-color: #2481cc;
+      --tg-theme-button-color: #2481cc;
+      --tg-theme-button-text-color: #ffffff;
+      --danger-color: #ff3b30;
+      --success-color: #34c759;
+
+      /* Настройки шрифтов и отступов */
+      --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      --border-radius: 12px;
+      --spacing-sm: 8px;
+      --spacing-md: 16px;
+      --spacing-lg: 24px;
+      --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    /* --- GLOBAL STYLES --- */
     body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      background: #f5f5f5;
+      background-color: var(--tg-theme-secondary-bg-color);
+      /* Фон страницы чуть темнее для контраста карточек */
+      color: var(--tg-theme-text-color);
+      font-family: var(--font-family);
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.3s, color 0.3s;
     }
-    h1 { margin-bottom: 20px; color: #333; }
-    input {
-      width: 100%;
-      padding: 12px;
-      margin-bottom: 10px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      font-size: 16px;
+
+    * {
+      box-sizing: border-box;
+      outline: none;
     }
-    button {
-      width: 100%;
-      padding: 12px;
-      background: #0088cc;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-      font-weight: bold;
+
+    /* --- LAYOUT --- */
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: var(--spacing-md);
+      padding-bottom: 80px;
+      /* Место для футера/скролла */
     }
-    button:hover { background: #006fa3; }
-    .prompt-item {
-      background: white;
-      padding: 12px;
-      margin: 10px 0;
-      border-radius: 8px;
-      border-left: 4px solid #0088cc;
+
+    /* --- HEADER --- */
+    header {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      margin-bottom: var(--spacing-lg);
     }
-    .delete-btn {
-      background: #ff4444;
+
+    h1 {
+      font-size: 1.5rem;
+      margin: 0;
+      font-weight: 700;
+    }
+
+    .user-greeting {
+      font-size: 0.9rem;
+      color: var(--tg-theme-hint-color);
+    }
+
+    /* --- STATS SECTION --- */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-md);
+    }
+
+    .stat-card {
+      background-color: var(--tg-theme-bg-color);
+      padding: var(--spacing-md);
+      border-radius: var(--border-radius);
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+
+    .stat-value {
+      font-size: 1.25rem;
+      font-weight: bold;
+      color: var(--tg-theme-button-color);
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--tg-theme-hint-color);
+    }
+
+    /* --- ADD PROMPT SECTION --- */
+    .card {
+      background-color: var(--tg-theme-bg-color);
+      padding: var(--spacing-md);
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .form-group {
+      margin-bottom: var(--spacing-md);
+    }
+
+    input[type="text"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--tg-theme-hint-color);
+      /* Fallback border */
+      border: 1px solid rgba(128, 128, 128, 0.2);
+      background-color: var(--tg-theme-bg-color);
+      color: var(--tg-theme-text-color);
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      border-color: var(--tg-theme-button-color);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    button.btn-primary {
+      background-color: var(--tg-theme-button-color);
+      color: var(--tg-theme-button-text-color);
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      font-size: 1rem;
+      transition: opacity 0.2s;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+    }
+
+    button.btn-primary:active {
+      opacity: 0.8;
+    }
+
+    /* --- FILTER & SEARCH --- */
+    .controls {
+      position: sticky;
+      top: 0;
+      background-color: var(--tg-theme-secondary-bg-color);
+      z-index: 10;
+      padding-bottom: var(--spacing-sm);
+      padding-top: var(--spacing-sm);
+    }
+
+    .search-bar {
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .category-filters {
+      display: flex;
+      overflow-x: auto;
+      gap: var(--spacing-sm);
+      padding-bottom: 4px;
+      scrollbar-width: none;
+      /* Firefox */
+    }
+
+    .category-filters::-webkit-scrollbar {
+      display: none;
+      /* Chrome/Safari */
+    }
+
+    .filter-chip {
+      background-color: var(--tg-theme-bg-color);
+      color: var(--tg-theme-text-color);
+      border: 1px solid rgba(0, 0, 0, 0.1);
       padding: 6px 12px;
-      font-size: 14px;
-      width: auto;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .filter-chip.active {
+      background-color: var(--tg-theme-button-color);
+      color: var(--tg-theme-button-text-color);
+      border-color: transparent;
+    }
+
+    /* --- PROMPTS LIST --- */
+    .prompt-item {
+      background-color: var(--tg-theme-bg-color);
+      border-radius: var(--border-radius);
+      padding: var(--spacing-md);
+      margin-bottom: var(--spacing-md);
+      box-shadow: var(--shadow);
+      animation: fadeIn 0.3s ease-out;
+      position: relative;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .prompt-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .prompt-title {
+      font-weight: 600;
+      font-size: 1.1rem;
+      margin-right: 10px;
+    }
+
+    .prompt-badge {
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background-color: var(--tg-theme-secondary-bg-color);
+      color: var(--tg-theme-hint-color);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .prompt-content {
+      font-size: 0.95rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      margin-bottom: var(--spacing-md);
+      color: var(--tg-theme-text-color);
+    }
+
+    .prompt-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid rgba(0, 0, 0, 0.05);
+      padding-top: var(--spacing-sm);
+    }
+
+    .prompt-date {
+      font-size: 0.75rem;
+      color: var(--tg-theme-hint-color);
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-icon {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 4px;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+
+    .btn-copy {
+      color: var(--tg-theme-link-color);
+    }
+
+    .btn-delete {
+      color: var(--danger-color);
+    }
+
+    .btn-icon:hover {
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    /* --- EMPTY STATE --- */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--tg-theme-hint-color);
+    }
+
+    .empty-state-icon {
+      font-size: 3rem;
+      margin-bottom: 10px;
+      opacity: 0.5;
+    }
+
+    /* --- TOAST NOTIFICATION --- */
+    #toast {
+      visibility: hidden;
+      min-width: 250px;
+      background-color: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      text-align: center;
+      border-radius: 8px;
+      padding: 12px;
+      position: fixed;
+      z-index: 100;
+      left: 50%;
+      bottom: 30px;
+      transform: translateX(-50%);
+      font-size: 0.9rem;
+      opacity: 0;
+      transition: opacity 0.3s, bottom 0.3s;
+    }
+
+    #toast.show {
+      visibility: visible;
+      opacity: 1;
+      bottom: 50px;
     }
   </style>
 </head>
+
 <body>
-  <h1>📝 AgeAiSavePrompts</h1>
-  
-  <input type="text" id="promptInput" placeholder="Введите промпт..." />
-  <button onclick="addPrompt()">💾 Сохранить</button>
-  
-  <div id="promptsList"></div>
+
+  <div id="app" class="container">
+    <header>
+      <div>
+        <h1>AgeAiSavePrompts</h1>
+        <div id="user-greeting" class="user-greeting">Hello, Guest!</div>
+      </div>
+    </header>
+
+    <section class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="total-count">0</div>
+        <div class="stat-label">Total Prompts</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="categories-count">0</div>
+        <div class="stat-label">Categories Used</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="form-group">
+        <input type="text" id="prompt-title" placeholder="Prompt Title (e.g., SEO Article)" maxlength="50">
+      </div>
+      <div class="form-group">
+        <select id="prompt-category">
+          <option value="AI Writing">✍️ AI Writing</option>
+          <option value="Coding">💻 Coding</option>
+          <option value="Design">🎨 Design</option>
+          <option value="Marketing">📢 Marketing</option>
+          <option value="Other">🧩 Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <textarea id="prompt-content" placeholder="Paste your prompt here..."></textarea>
+      </div>
+      <button id="add-btn" class="btn-primary">
+        <span>➕ Add Prompt</span>
+      </button>
+    </section>
+
+    <section class="controls">
+      <div class="search-bar">
+        <input type="text" id="search-input" placeholder="🔍 Search prompts...">
+      </div>
+      <div class="category-filters" id="filter-container">
+        <button class="filter-chip active" data-filter="all">All</button>
+        <button class="filter-chip" data-filter="AI Writing">Writing</button>
+        <button class="filter-chip" data-filter="Coding">Coding</button>
+        <button class="filter-chip" data-filter="Design">Design</button>
+        <button class="filter-chip" data-filter="Marketing">Marketing</button>
+        <button class="filter-chip" data-filter="Other">Other</button>
+      </div>
+    </section>
+
+    <div id="prompts-list">
+    </div>
+
+  </div>
+
+  <div id="toast">Copied to clipboard!</div>
 
   <script>
-    // Загружаем сохранённые промпты
-    function loadPrompts() {
-      const prompts = JSON.parse(localStorage.getItem('prompts') || '[]');
-      const list = document.getElementById('promptsList');
-      list.innerHTML = '';
-      
-      prompts.forEach((p, i) => {
-        const div = document.createElement('div');
-        div.className = 'prompt-item';
-        div.innerHTML = `
-          <span>${p}</span>
-          <button class="delete-btn" onclick="deletePrompt(${i})">Удалить</button>
-        `;
-        list.appendChild(div);
-      });
-    }
+    /**
+     * App Logic using ES6+ Classes
+     */
+    class PromptApp {
+      constructor() {
+        this.tg = window.Telegram.WebApp;
+        this.prompts = [];
+        this.currentFilter = 'all';
+        this.searchTerm = '';
+        this.storageKey = 'ageai_prompts_data';
+        this.maxPrompts = 50;
 
-    // Добавляем промпт
-    function addPrompt() {
-      const input = document.getElementById('promptInput');
-      const prompt = input.value.trim();
-      
-      if (!prompt) {
-        alert('Введите промпт!');
-        return;
+        // DOM Elements
+        this.dom = {
+          titleInput: document.getElementById('prompt-title'),
+          contentInput: document.getElementById('prompt-content'),
+          categorySelect: document.getElementById('prompt-category'),
+          addBtn: document.getElementById('add-btn'),
+          listContainer: document.getElementById('prompts-list'),
+          filterContainer: document.getElementById('filter-container'),
+          searchInput: document.getElementById('search-input'),
+          greeting: document.getElementById('user-greeting'),
+          totalCount: document.getElementById('total-count'),
+          catCount: document.getElementById('categories-count'),
+          toast: document.getElementById('toast')
+        };
+
+        this.init();
       }
-      
-      const prompts = JSON.parse(localStorage.getItem('prompts') || '[]');
-      prompts.unshift(prompt); // Добавляем в начало
-      localStorage.setItem('prompts', JSON.stringify(prompts));
-      
-      input.value = '';
-      loadPrompts();
+
+      init() {
+        // 1. Initialize Telegram Web App
+        this.tg.ready();
+        this.tg.expand(); // Open full height
+
+        // Set colors based on Telegram theme
+        document.documentElement.style.setProperty('--tg-theme-bg-color', this.tg.backgroundColor || '#ffffff');
+        document.documentElement.style.setProperty('--tg-theme-text-color', this.tg.textColor || '#000000');
+
+        // 2. User Greeting
+        if (this.tg.initDataUnsafe && this.tg.initDataUnsafe.user) {
+          const user = this.tg.initDataUnsafe.user;
+          this.dom.greeting.textContent = `Hello, ${user.first_name}!`;
+          this.userId = user.id;
+        } else {
+          this.userId = 'local-dev-user'; // Fallback for browser testing
+        }
+
+        // 3. Load Data
+        this.loadPrompts();
+
+        // 4. Event Listeners
+        this.bindEvents();
+
+        // 5. Initial Render
+        this.render();
+
+        // 6. Sync across tabs
+        window.addEventListener('storage', (e) => {
+          if (e.key === this.storageKey) {
+            this.loadPrompts();
+            this.render();
+          }
+        });
+      }
+
+      bindEvents() {
+        // Add Prompt
+        this.dom.addBtn.addEventListener('click', () => this.handleAdd());
+
+        // Enter key shortcut for inputs
+        this.dom.titleInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') this.dom.contentInput.focus();
+        });
+
+        // Search
+        this.dom.searchInput.addEventListener('input', (e) => {
+          this.searchTerm = e.target.value.toLowerCase();
+          this.render();
+        });
+
+        // Filters
+        this.dom.filterContainer.addEventListener('click', (e) => {
+          if (e.target.classList.contains('filter-chip')) {
+            // Update UI
+            document.querySelectorAll('.filter-chip').forEach(el => el.classList.remove('active'));
+            e.target.classList.add('active');
+
+            // Update Logic
+            this.currentFilter = e.target.dataset.filter;
+            this.render();
+          }
+        });
+
+        // Dynamic List Events (Delete & Copy) via Delegation
+        this.dom.listContainer.addEventListener('click', (e) => {
+          const target = e.target.closest('button');
+          if (!target) return;
+
+          const id = target.dataset.id;
+
+          if (target.classList.contains('btn-delete')) {
+            this.deletePrompt(id);
+          } else if (target.classList.contains('btn-copy')) {
+            const text = target.dataset.text;
+            this.copyToClipboard(text);
+          }
+        });
+      }
+
+      loadPrompts() {
+        const data = localStorage.getItem(this.storageKey);
+        this.prompts = data ? JSON.parse(data) : [];
+      }
+
+      savePrompts() {
+        localStorage.setItem(this.storageKey, JSON.stringify(this.prompts));
+        this.updateStats();
+      }
+
+      handleAdd() {
+        const title = this.dom.titleInput.value.trim();
+        const content = this.dom.contentInput.value.trim();
+        const category = this.dom.categorySelect.value;
+
+        if (!title || !content) {
+          this.tg.showAlert('Please fill in both title and prompt content.');
+          return;
+        }
+
+        if (this.prompts.length >= this.maxPrompts) {
+          this.tg.showAlert(`Limit reached (${this.maxPrompts} prompts). Please delete some first.`);
+          return;
+        }
+
+        const newPrompt = {
+          id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+          title,
+          content,
+          category,
+          createdAt: new Date().toISOString(),
+          userId: this.userId
+        };
+
+        this.prompts.unshift(newPrompt); // Add to top
+        this.savePrompts();
+        this.render();
+
+        // Reset form
+        this.dom.titleInput.value = '';
+        this.dom.contentInput.value = '';
+
+        // Haptic feedback
+        if (this.tg.HapticFeedback) this.tg.HapticFeedback.notificationOccurred('success');
+      }
+
+      deletePrompt(id) {
+        this.tg.showConfirm('Are you sure you want to delete this prompt?', (confirmed) => {
+          if (confirmed) {
+            this.prompts = this.prompts.filter(p => p.id !== id);
+            this.savePrompts();
+            this.render();
+            if (this.tg.HapticFeedback) this.tg.HapticFeedback.notificationOccurred('warning');
+          }
+        });
+      }
+
+      copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+          this.showToast('Prompt copied to clipboard! 📋');
+          if (this.tg.HapticFeedback) this.tg.HapticFeedback.selectionChanged();
+        }).catch(err => {
+          console.error('Failed to copy: ', err);
+          this.showToast('Failed to copy');
+        });
+      }
+
+      showToast(message) {
+        this.dom.toast.textContent = message;
+        this.dom.toast.className = 'show';
+        setTimeout(() => { this.dom.toast.className = this.dom.toast.className.replace('show', ''); }, 3000);
+      }
+
+      formatDate(isoString) {
+        const date = new Date(isoString);
+        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+
+      updateStats() {
+        this.dom.totalCount.textContent = this.prompts.length;
+        const uniqueCats = new Set(this.prompts.map(p => p.category));
+        this.dom.catCount.textContent = uniqueCats.size;
+      }
+
+      render() {
+        this.updateStats();
+        this.dom.listContainer.innerHTML = '';
+
+        // Filter
+        let filtered = this.prompts;
+        if (this.currentFilter !== 'all') {
+          filtered = filtered.filter(p => p.category === this.currentFilter);
+        }
+
+        // Search
+        if (this.searchTerm) {
+          filtered = filtered.filter(p =>
+            p.title.toLowerCase().includes(this.searchTerm) ||
+            p.content.toLowerCase().includes(this.searchTerm)
+          );
+        }
+
+        // Empty State
+        if (filtered.length === 0) {
+          this.dom.listContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <p>${this.prompts.length === 0 ? 'No prompts yet. Add one above!' : 'No prompts found matching filters.'}</p>
+                    </div>
+                `;
+          return;
+        }
+
+        // Render Items
+        filtered.forEach(prompt => {
+          const el = document.createElement('div');
+          el.className = 'prompt-item';
+          el.innerHTML = `
+                    <div class="prompt-header">
+                        <div>
+                            <span class="prompt-title">${this.escapeHtml(prompt.title)}</span>
+                            <span class="prompt-badge">${prompt.category}</span>
+                        </div>
+                    </div>
+                    <div class="prompt-content">${this.escapeHtml(prompt.content)}</div>
+                    <div class="prompt-footer">
+                        <span class="prompt-date">Updated: ${this.formatDate(prompt.createdAt)}</span>
+                        <div class="action-buttons">
+                            <button class="btn-icon btn-copy" data-id="${prompt.id}" data-text="${this.escapeHtml(prompt.content)}" title="Copy">📋</button>
+                            <button class="btn-icon btn-delete" data-id="${prompt.id}" title="Delete">🗑️</button>
+                        </div>
+                    </div>
+                `;
+          this.dom.listContainer.appendChild(el);
+        });
+      }
+
+      escapeHtml(text) {
+        const map = {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, function (m) { return map[m]; });
+      }
     }
 
-    // Удаляем промпт
-    function deletePrompt(index) {
-      const prompts = JSON.parse(localStorage.getItem('prompts') || '[]');
-      prompts.splice(index, 1);
-      localStorage.setItem('prompts', JSON.stringify(prompts));
-      loadPrompts();
-    }
-
-    // При загрузке показываем промпты
-    loadPrompts();
+    // Initialize App when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      new PromptApp();
+    });
   </script>
+
 </body>
+
 </html>
