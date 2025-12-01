@@ -4,8 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AgeAiSavePrompts - Prompt Manager</title>
+  <title>AgeAiSavePrompts</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
   <!-- Google Fonts - Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -171,76 +172,6 @@
       gap: 4px;
     }
 
-    /* --- STATS SECTION --- */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: var(--spacing-md);
-      margin-bottom: var(--spacing-lg);
-    }
-
-    .stat-card {
-      background: rgba(255, 255, 255, 0.8);
-      backdrop-filter: blur(10px);
-      padding: var(--spacing-lg);
-      border-radius: var(--radius-lg);
-      border: 1px solid rgba(255, 255, 255, 0.9);
-      box-shadow: var(--md-elevation-2);
-      transition: all var(--transition-base);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .stat-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, var(--md-primary), var(--md-tertiary));
-      opacity: 0;
-      transition: opacity var(--transition-base);
-    }
-
-    .stat-card:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--md-elevation-3);
-    }
-
-    .stat-card:hover::before {
-      opacity: 1;
-    }
-
-    .stat-header {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-sm);
-      margin-bottom: var(--spacing-sm);
-    }
-
-    .stat-icon {
-      color: var(--md-primary);
-      font-size: 24px;
-    }
-
-    .stat-value {
-      font-size: 2rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, var(--md-primary) 0%, var(--md-tertiary) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      line-height: 1;
-    }
-
-    .stat-label {
-      font-size: 0.813rem;
-      color: var(--md-on-surface-variant);
-      font-weight: 500;
-      margin-top: var(--spacing-xs);
-    }
-
     /* --- CARD STYLES --- */
     .card {
       background: rgba(255, 255, 255, 0.9);
@@ -272,20 +203,6 @@
       margin-bottom: var(--spacing-lg);
     }
 
-    .input-wrapper {
-      position: relative;
-    }
-
-    .input-icon {
-      position: absolute;
-      left: 14px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--md-on-surface-variant);
-      pointer-events: none;
-      font-size: 20px;
-    }
-
     input[type="text"],
     textarea,
     select {
@@ -300,6 +217,7 @@
       font-weight: 400;
       transition: all var(--transition-base);
       outline: none;
+      margin-bottom: 12px;
     }
 
     input[type="text"]:focus,
@@ -612,6 +530,14 @@
       bottom: 50px;
     }
 
+    /* --- LOADING STATE --- */
+    .loading {
+      text-align: center;
+      padding: var(--spacing-xl);
+      color: var(--md-on-surface-variant);
+      font-size: 1rem;
+    }
+
     /* --- RESPONSIVE --- */
     @media (max-width: 600px) {
       .container {
@@ -624,10 +550,6 @@
 
       .header-text h1 {
         font-size: 1.5rem;
-      }
-
-      .stat-value {
-        font-size: 1.75rem;
       }
 
       .card {
@@ -646,31 +568,14 @@
           <span class="material-symbols-rounded">auto_awesome</span>
         </div>
         <div class="header-text">
-          <h1>AgeAiSavePrompts</h1>
+          <h1>AgeAi Prompts</h1>
           <div id="user-greeting" class="user-greeting">
             <span class="material-symbols-rounded" style="font-size: 16px;">person</span>
-            Hello, Guest!
+            Loading...
           </div>
         </div>
       </div>
     </header>
-
-    <section class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-header">
-          <span class="material-symbols-rounded stat-icon">description</span>
-        </div>
-        <div class="stat-value" id="total-count">0</div>
-        <div class="stat-label">Total Prompts</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-header">
-          <span class="material-symbols-rounded stat-icon">category</span>
-        </div>
-        <div class="stat-value" id="categories-count">0</div>
-        <div class="stat-label">Categories Used</div>
-      </div>
-    </section>
 
     <section class="card">
       <h2 class="card-title">
@@ -678,7 +583,7 @@
         Add New Prompt
       </h2>
       <div class="form-group">
-        <input type="text" id="prompt-title" placeholder="Prompt Title (e.g., SEO Article)" maxlength="50">
+        <input type="text" id="prompt-title" placeholder="Prompt Title">
       </div>
       <div class="form-group">
         <select id="prompt-category">
@@ -731,8 +636,8 @@
     </section>
 
     <div id="prompts-list">
+      <div class="loading">Loading prompts from cloud...</div>
     </div>
-
   </div>
 
   <div id="toast">
@@ -741,261 +646,196 @@
   </div>
 
   <script>
-    /**
-     * App Logic using ES6+ Classes
-     */
+    // --- SUPABASE CONFIGURATION ---
+    const SUPABASE_URL = 'https://ffzonxqruyzaaumbsckp.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmem9ueHFydXl6YWF1bWJzY2twIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1OTk0NzcsImV4cCI6MjA4MDE3NTQ3N30.n_qLtNEdtaciijFOSuJQtfWjbO10CcuUfi5ClGK5838';
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
     class PromptApp {
       constructor() {
         this.tg = window.Telegram.WebApp;
+        this.userId = null;
         this.prompts = [];
-        this.currentFilter = 'all';
-        this.searchTerm = '';
-        this.storageKey = 'ageai_prompts_data';
-        this.maxPrompts = 50;
+        this.filter = 'all';
 
-        // DOM Elements
         this.dom = {
-          titleInput: document.getElementById('prompt-title'),
-          contentInput: document.getElementById('prompt-content'),
-          categorySelect: document.getElementById('prompt-category'),
-          addBtn: document.getElementById('add-btn'),
-          listContainer: document.getElementById('prompts-list'),
-          filterContainer: document.getElementById('filter-container'),
-          searchInput: document.getElementById('search-input'),
-          greeting: document.getElementById('user-greeting'),
-          totalCount: document.getElementById('total-count'),
-          catCount: document.getElementById('categories-count'),
-          toast: document.getElementById('toast')
+          title: document.getElementById('prompt-title'),
+          content: document.getElementById('prompt-content'),
+          cat: document.getElementById('prompt-category'),
+          list: document.getElementById('prompts-list'),
+          greeting: document.getElementById('user-greeting')
         };
 
         this.init();
       }
 
-      init() {
-        // 1. Initialize Telegram Web App
+      async init() {
         this.tg.ready();
-        this.tg.expand(); // Open full height
+        this.tg.expand();
 
-        // Set colors based on Telegram theme
-        document.documentElement.style.setProperty('--tg-theme-bg-color', this.tg.backgroundColor || '#ffffff');
-        document.documentElement.style.setProperty('--tg-theme-text-color', this.tg.textColor || '#000000');
-
-        // 2. User Greeting
-        if (this.tg.initDataUnsafe && this.tg.initDataUnsafe.user) {
+        // 1. User identification
+        if (this.tg.initDataUnsafe?.user) {
+          // Inside Telegram
           const user = this.tg.initDataUnsafe.user;
-          this.dom.greeting.innerHTML = `<span class="material-symbols-rounded" style="font-size: 16px;">person</span> Hello, ${user.first_name}!`;
           this.userId = user.id;
+          this.dom.greeting.innerHTML = `<span class="material-symbols-rounded" style="font-size: 16px;">person</span> Hello, ${user.first_name}!`;
+          await this.syncUser(user);
         } else {
-          this.userId = 'local-dev-user'; // Fallback for browser testing
+          // In browser (Chrome/Edge)
+          this.userId = 11111;
+          this.dom.greeting.innerHTML = `<span class="material-symbols-rounded" style="font-size: 16px;">person</span> Hello, Developer!`;
         }
 
-        // 3. Load Data
-        this.loadPrompts();
-
-        // 4. Event Listeners
+        // 2. Load prompts
+        await this.loadPrompts();
         this.bindEvents();
+      }
 
-        // 5. Initial Render
-        this.render();
-
-        // 6. Sync across tabs
-        window.addEventListener('storage', (e) => {
-          if (e.key === this.storageKey) {
-            this.loadPrompts();
-            this.render();
-          }
+      // Save user to database
+      async syncUser(user) {
+        const { error } = await supabase.from('users').upsert({
+          telegram_id: user.id,
+          first_name: user.first_name,
+          username: user.username,
+          language_code: user.language_code
         });
+        if (error) console.error("User Sync Error:", error);
+      }
+
+      async loadPrompts() {
+        const { data, error } = await supabase
+          .from('prompts')
+          .select('*')
+          .eq('user_id', this.userId)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error("Supabase Error:", error);
+          this.dom.list.innerHTML = `<div class="loading">Error: ${error.message}</div>`;
+          return;
+        }
+
+        this.prompts = data || [];
+        this.render();
+      }
+
+      async handleAdd() {
+        const title = this.dom.title.value.trim();
+        const content = this.dom.content.value.trim();
+        const category = this.dom.cat.value;
+
+        if (!title || !content) return this.notify("Please fill all fields");
+
+        const { data, error } = await supabase.from('prompts').insert({
+          user_id: this.userId,
+          title, content, category
+        }).select();
+
+        if (error) {
+          console.error("Add Error:", error);
+          this.notify("Failed to save: " + error.message);
+        } else {
+          if (this.tg.HapticFeedback) this.tg.HapticFeedback.notificationOccurred('success');
+          this.dom.title.value = '';
+          this.dom.content.value = '';
+          if (data && data[0]) {
+            this.prompts.unshift(data[0]);
+            this.render();
+          } else {
+            this.loadPrompts();
+          }
+        }
+      }
+
+      async deletePrompt(id) {
+        const isConfirmed = confirm("Delete this prompt?");
+
+        if (isConfirmed) {
+          const { error } = await supabase.from('prompts').delete().eq('id', id);
+          if (!error) {
+            this.prompts = this.prompts.filter(p => p.id !== id);
+            this.render();
+          } else {
+            this.notify("Delete failed");
+          }
+        }
+      }
+
+      notify(message) {
+        if (this.tg.initDataUnsafe?.user && this.tg.showAlert) {
+          this.tg.showAlert(message);
+        } else {
+          alert(message);
+        }
       }
 
       bindEvents() {
-        // Add Prompt
-        this.dom.addBtn.addEventListener('click', () => this.handleAdd());
+        document.getElementById('add-btn').onclick = () => this.handleAdd();
 
-        // Enter key shortcut for inputs
-        this.dom.titleInput.addEventListener('keypress', (e) => {
-          if (e.key === 'Enter') this.dom.contentInput.focus();
-        });
-
-        // Search
-        this.dom.searchInput.addEventListener('input', (e) => {
-          this.searchTerm = e.target.value.toLowerCase();
-          this.render();
-        });
-
-        // Filters
-        this.dom.filterContainer.addEventListener('click', (e) => {
-          if (e.target.classList.contains('filter-chip') || e.target.closest('.filter-chip')) {
-            const chip = e.target.classList.contains('filter-chip') ? e.target : e.target.closest('.filter-chip');
-
-            // Update UI
-            document.querySelectorAll('.filter-chip').forEach(el => el.classList.remove('active'));
+        document.getElementById('filter-container').onclick = (e) => {
+          const chip = e.target.closest('.filter-chip');
+          if (chip) {
+            document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
             chip.classList.add('active');
-
-            // Update Logic
-            this.currentFilter = chip.dataset.filter;
+            this.filter = chip.dataset.filter;
             this.render();
           }
-        });
-
-        // Dynamic List Events (Delete & Copy) via Delegation
-        this.dom.listContainer.addEventListener('click', (e) => {
-          const target = e.target.closest('button');
-          if (!target) return;
-
-          const id = target.dataset.id;
-
-          if (target.classList.contains('btn-delete')) {
-            this.deletePrompt(id);
-          } else if (target.classList.contains('btn-copy')) {
-            const text = target.dataset.text;
-            this.copyToClipboard(text);
-          }
-        });
-      }
-
-      loadPrompts() {
-        const data = localStorage.getItem(this.storageKey);
-        this.prompts = data ? JSON.parse(data) : [];
-      }
-
-      savePrompts() {
-        localStorage.setItem(this.storageKey, JSON.stringify(this.prompts));
-        this.updateStats();
-      }
-
-      handleAdd() {
-        const title = this.dom.titleInput.value.trim();
-        const content = this.dom.contentInput.value.trim();
-        const category = this.dom.categorySelect.value;
-
-        if (!title || !content) {
-          this.tg.showAlert('Please fill in both title and prompt content.');
-          return;
-        }
-
-        if (this.prompts.length >= this.maxPrompts) {
-          this.tg.showAlert(`Limit reached (${this.maxPrompts} prompts). Please delete some first.`);
-          return;
-        }
-
-        const newPrompt = {
-          id: Date.now().toString(36) + Math.random().toString(36).substr(2),
-          title,
-          content,
-          category,
-          createdAt: new Date().toISOString(),
-          userId: this.userId
         };
 
-        this.prompts.unshift(newPrompt); // Add to top
-        this.savePrompts();
-        this.render();
+        document.getElementById('search-input').oninput = (e) => {
+          this.render(e.target.value.toLowerCase());
+        };
 
-        // Reset form
-        this.dom.titleInput.value = '';
-        this.dom.contentInput.value = '';
-
-        // Haptic feedback
-        if (this.tg.HapticFeedback) this.tg.HapticFeedback.notificationOccurred('success');
-      }
-
-      deletePrompt(id) {
-        this.tg.showConfirm('Are you sure you want to delete this prompt?', (confirmed) => {
-          if (confirmed) {
-            this.prompts = this.prompts.filter(p => p.id !== id);
-            this.savePrompts();
-            this.render();
-            if (this.tg.HapticFeedback) this.tg.HapticFeedback.notificationOccurred('warning');
+        this.dom.list.onclick = (e) => {
+          const btn = e.target.closest('button');
+          if (!btn) return;
+          if (btn.classList.contains('btn-delete')) this.deletePrompt(btn.dataset.id);
+          if (btn.classList.contains('btn-copy')) {
+            navigator.clipboard.writeText(btn.dataset.text);
+            this.showToast();
           }
-        });
+        };
       }
 
-      copyToClipboard(text) {
-        navigator.clipboard.writeText(text).then(() => {
-          this.showToast('Prompt copied to clipboard!');
-          if (this.tg.HapticFeedback) this.tg.HapticFeedback.selectionChanged();
-        }).catch(err => {
-          console.error('Failed to copy: ', err);
-          this.showToast('Failed to copy');
-        });
-      }
+      render(search = '') {
+        let list = this.prompts.filter(p => this.filter === 'all' || p.category === this.filter);
+        if (search) list = list.filter(p => p.title.toLowerCase().includes(search) || p.content.toLowerCase().includes(search));
 
-      showToast(message) {
-        this.dom.toast.innerHTML = `<span class="material-symbols-rounded" style="font-size: 20px;">check_circle</span>${message}`;
-        this.dom.toast.className = 'show';
-        setTimeout(() => { this.dom.toast.className = this.dom.toast.className.replace('show', ''); }, 3000);
-      }
-
-      formatDate(isoString) {
-        const date = new Date(isoString);
-        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-      }
-
-      updateStats() {
-        this.dom.totalCount.textContent = this.prompts.length;
-        const uniqueCats = new Set(this.prompts.map(p => p.category));
-        this.dom.catCount.textContent = uniqueCats.size;
-      }
-
-      render() {
-        this.updateStats();
-        this.dom.listContainer.innerHTML = '';
-
-        // Filter
-        let filtered = this.prompts;
-        if (this.currentFilter !== 'all') {
-          filtered = filtered.filter(p => p.category === this.currentFilter);
-        }
-
-        // Search
-        if (this.searchTerm) {
-          filtered = filtered.filter(p =>
-            p.title.toLowerCase().includes(this.searchTerm) ||
-            p.content.toLowerCase().includes(this.searchTerm)
-          );
-        }
-
-        // Empty State
-        if (filtered.length === 0) {
-          this.dom.listContainer.innerHTML = `
-            <div class="empty-state">
-              <div class="empty-state-icon">📭</div>
-              <p>${this.prompts.length === 0 ? 'No prompts yet. Add one above!' : 'No prompts found matching filters.'}</p>
-            </div>
-          `;
+        if (list.length === 0) {
+          this.dom.list.innerHTML = `<div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <p>${this.prompts.length === 0 ? 'No prompts yet. Add one above!' : 'No prompts found matching filters.'}</p>
+          </div>`;
           return;
         }
 
-        // Render Items
-        filtered.forEach(prompt => {
-          const el = document.createElement('div');
-          el.className = 'prompt-item';
-          el.innerHTML = `
+        this.dom.list.innerHTML = list.map(p => `
+          <div class="prompt-item">
             <div class="prompt-header">
-              <div class="prompt-title">${this.escapeHtml(prompt.title)}</div>
-              <span class="prompt-badge">${prompt.category}</span>
+              <div class="prompt-title">${this.esc(p.title)}</div>
+              <span class="prompt-badge">${p.category}</span>
             </div>
-            <div class="prompt-content">${this.escapeHtml(prompt.content)}</div>
+            <div class="prompt-content">${this.esc(p.content)}</div>
             <div class="prompt-footer">
               <span class="prompt-date">
                 <span class="material-symbols-rounded" style="font-size: 14px;">schedule</span>
-                ${this.formatDate(prompt.createdAt)}
+                ${new Date(p.created_at).toLocaleDateString()}
               </span>
               <div class="action-buttons">
-                <button class="btn-icon btn-copy" data-id="${prompt.id}" data-text="${this.escapeHtml(prompt.content)}" title="Copy">
+                <button class="btn-icon btn-copy" data-id="${p.id}" data-text="${this.esc(p.content)}" title="Copy">
                   <span class="material-symbols-rounded">content_copy</span>
                 </button>
-                <button class="btn-icon btn-delete" data-id="${prompt.id}" title="Delete">
+                <button class="btn-icon btn-delete" data-id="${p.id}" title="Delete">
                   <span class="material-symbols-rounded">delete</span>
                 </button>
               </div>
             </div>
-          `;
-          this.dom.listContainer.appendChild(el);
-        });
+          </div>
+        `).join('');
       }
 
-      escapeHtml(text) {
+      esc(t) {
         const map = {
           '&': '&amp;',
           '<': '&lt;',
@@ -1003,16 +843,18 @@
           '"': '&quot;',
           "'": '&#039;'
         };
-        return text.replace(/[&<>"']/g, function (m) { return map[m]; });
+        return t ? t.replace(/[&<>"']/g, m => map[m]) : '';
+      }
+
+      showToast() {
+        const t = document.getElementById('toast');
+        t.className = 'show';
+        setTimeout(() => t.className = '', 2000);
       }
     }
 
-    // Initialize App when DOM is ready
-    document.addEventListener('DOMContentLoaded', () => {
-      new PromptApp();
-    });
+    new PromptApp();
   </script>
-
 </body>
 
 </html>
